@@ -8,6 +8,7 @@
 
 #include "./png.h"
 
+#include <zlib.h>
 
 
 
@@ -40,6 +41,10 @@ int main(int argc, char **argv) {
 
             case CHUNK_TYPE_HEADER:  {
                 puts("header");
+
+                uint8_t comp_meth = chunk.chunk_imageheader.compression_method;
+                assert(comp_meth == 0);
+
             } break;
 
             case CHUNK_TYPE_DATA: {

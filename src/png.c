@@ -93,16 +93,23 @@ Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length) {
     switch (type) {
 
         case CHUNK_TYPE_HEADER: {
+            ImageHeader *header = &chunk.chunk_imageheader;
+
             uint8_t width_buf[4] = { 0 };
             memcpy(width_buf, bytes, 4);
             uint32_t width = number_from_bytes(width_buf, 4);
-            chunk.chunk_imageheader.width = width;
+            header->width = width;
 
             uint8_t height_buf[4] = { 0 };
             memcpy(height_buf, bytes+4, 4);
             uint32_t height = number_from_bytes(height_buf, 4);
-            chunk.chunk_imageheader.height = height;
+            header->height = height;
 
+            header->bit_depth          = bytes[5];
+            header->color_type         = bytes[6];
+            header->compression_method = bytes[7];
+            header->filter_method      = bytes[8];
+            header->interlace_method   = bytes[9];
         } break;
 
         case CHUNK_TYPE_DATA: {

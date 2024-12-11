@@ -30,8 +30,31 @@ int main(int argc, char **argv) {
     }
 
 
-    while (!feof(f)) {
-        parse_chunk(f);
+    while (true) {
+        Chunk chunk = parse_chunk(f);
+
+        switch (chunk.type) {
+
+            case CHUNK_TYPE_INVALID: {
+            } break;
+
+            case CHUNK_TYPE_HEADER:  {
+                puts("header");
+            } break;
+
+            case CHUNK_TYPE_DATA: {
+                puts("data");
+            } break;
+
+            case CHUNK_TYPE_END: {
+                puts("end");
+            } break;
+
+        }
+
+        if (chunk.type == CHUNK_TYPE_END) {
+            break;
+        }
     }
 
 

@@ -14,12 +14,32 @@ static void print_bytes(const char *bytes, size_t len) {
 
 
 
+// Important: use uint8_t instead of char, because of signedness
+static uint64_t number_from_bytes(const uint8_t *bytes, size_t len) {
+
+    uint64_t number = 0;
+
+    // Data in PNG is stored as big endian
+    for (size_t i=0; i < len; ++i) {
+        size_t inv = (len-1) - i;
+        number += bytes[inv] << (i * 8);
+    }
+
+    return number;
+
+}
+
+
+
+
+
+
 bool check_signature(FILE *f) {
     const size_t sig_len  = 8;
-    const char *signature = "\x89\x50\x4e\x47\xd\xa\x1a\xa";
+    const uint8_t *signature = (uint8_t*) "\x89\x50\x4e\x47\xd\xa\x1a\xa";
 
-    char bytes[8] = { 0 };
-    size_t bytes_read = fread(bytes, sizeof(char), sig_len, f);
+    uint8_t bytes[8] = { 0 };
+    size_t bytes_read = fread(bytes, sizeof(uint8_t), sig_len, f);
 
     if (bytes_read < sig_len) {
         return false;
@@ -30,52 +50,72 @@ bool check_signature(FILE *f) {
 
 }
 
-
 uint32_t parse_chunk_length(FILE *f) {
 
-    const size_t block_len = 4;
-    char bytes[4] = { 0 };
-    fread(bytes, sizeof(char), block_len, f);
+    uint8_t bytes[4] = { 0 };
+    fread(bytes, sizeof(uint8_t), 4, f);
 
-    // Bytes are stored on disk as big endian
-    uint32_t length = bytes[3] +
-        (bytes[2] << 8) +
-        (bytes[1] << 16) +
-        (bytes[0] << 24);
-
+    uint32_t length = number_from_bytes(bytes, 4);
     return length;
 
 }
 
+ChunkType parse_chunk_type(FILE *f) {
 
-
-// typedef enum {
-// } ChunkType;
-
-typedef struct {
-    bool ancillary;
-} ChunkType;
-
-void parse_chunk_type(FILE *f) {
-
-    const size_t block_len = 4;
     char bytes[4] = { 0 };
-    fread(bytes, sizeof(char), block_len, f);
+    fread(bytes, sizeof(char), 4, f);
 
-    printf("%.4s\n", bytes);
-    // strncmp(bytes, "IHDR", 4);
-    // strncmp(bytes, "IDAT", 4);
-    // strncmp(bytes, "IEND", 4);
+    printf("type: %.4s\n", bytes);
 
-    bool ancillary    = bytes[0] & (1 << 4);
-    bool private      = bytes[1] & (1 << 4);
-    bool reserved     = bytes[2] & (1 << 4);
-    bool safe_to_copy = bytes[3] & (1 << 4);
+    if (!strncmp(bytes, "IHDR", 4)) {
+        return CHUNK_TYPE_HEADER;
+
+    } else if (!strncmp(bytes, "IDAT", 4)) {
+        return CHUNK_TYPE_DATA;
+
+    } else if (!strncmp(bytes, "IEND", 4)) {
+        return CHUNK_TYPE_END;
+
+    } else {
+        return CHUNK_TYPE_INVALID;
+    }
 
 }
 
-void parse_chunk_data(FILE *f, uint32_t length) {
-    fseek(f, length, SEEK_CUR);
+Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length) {
+
+    uint8_t *bytes = malloc(length * sizeof(char));
+    fread(bytes, sizeof(uint8_t), length, f);
+
+    Chunk chunk = { 0 };
+    chunk.type = type;
+
+    switch (type) {
+
+        case CHUNK_TYPE_HEADER: {
+            uint8_t width_buf[4] = { 0 };
+            memcpy(width_buf, bytes, 4);
+            uint32_t width = number_from_bytes(width_buf, 4);
+            chunk.chunk_imageheader.width = width;
+
+            uint8_t height_buf[4] = { 0 };
+            memcpy(height_buf, bytes+4, 4);
+            uint32_t height = number_from_bytes(height_buf, 4);
+            chunk.chunk_imageheader.height = height;
+
+        } break;
+
+        case CHUNK_TYPE_DATA: {
+
+        } break;
+
+        case CHUNK_TYPE_END:
+        case CHUNK_TYPE_INVALID: break;
+    }
+
+    free(bytes);
+    return chunk;
+
 }
 
 void parse_chunk_crc(FILE *f) {
@@ -85,18 +125,13 @@ void parse_chunk_crc(FILE *f) {
 
 
 
-// typedef struct {
-//     ChunkType kind;
-//     size_t data_len;
-//     void *data;
-// } Chunk;
-
-void parse_chunk(FILE *f) {
+Chunk parse_chunk(FILE *f) {
 
     uint32_t data_length = parse_chunk_length(f);
-    printf("length: %d\n", data_length);
-    parse_chunk_type(f);
-    parse_chunk_data(f, data_length);
+    ChunkType type = parse_chunk_type(f);
+    Chunk chunk = parse_chunk_data(f, type, data_length);
     parse_chunk_crc(f);
+
+    return chunk;
 
 }

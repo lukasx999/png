@@ -48,6 +48,18 @@ int main(int argc, char **argv) {
             } break;
 
             case CHUNK_TYPE_DATA: {
+                ImageData *data = &chunk.chunk_imagedata;
+
+                printf("Compression method/flags code: %u\n", data->compression_method);
+                printf("Additional flags/check bits: %u\n", data->additional_flags);
+
+                // for (size_t i=0; i < data->block_count; ++i) {
+                //     data->data_blocks[i];
+                // }
+
+                free(data->data_blocks);
+                printf("Check value: %d\n", data->check_value);
+
                 puts("data");
             } break;
 

@@ -20,6 +20,11 @@ typedef struct {
 
 
 typedef struct {
+    uint8_t compression_method;
+    uint8_t additional_flags;
+    size_t block_count;
+    uint8_t *data_blocks;
+    uint32_t check_value;
 } ImageData;
 
 typedef enum {

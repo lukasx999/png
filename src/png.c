@@ -110,10 +110,19 @@ Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length) {
             header->compression_method = bytes[7];
             header->filter_method      = bytes[8];
             header->interlace_method   = bytes[9];
+
         } break;
 
         case CHUNK_TYPE_DATA: {
+            ImageData *data = &chunk.chunk_imagedata;
+            data->compression_method = bytes[0];
+            data->additional_flags   = bytes[1];
 
+            data->block_count = length - 6;
+            data->data_blocks = malloc(data->block_count * sizeof(uint8_t));
+            memcpy(data->data_blocks, bytes+2, data->block_count);
+
+            data->check_value = (uint32_t) number_from_bytes(bytes+(length-4), 4);
         } break;
 
         case CHUNK_TYPE_END:

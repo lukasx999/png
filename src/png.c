@@ -67,6 +67,10 @@ ChunkType parse_chunk_type(FILE *f) {
 
     printf("type: %.4s\n", bytes);
 
+    // bool private = bytes[1] & (1 << 5);
+    // printf("private: %b\n", private);
+
+
     if (!strncmp(bytes, "IHDR", 4)) {
         return CHUNK_TYPE_HEADER;
 
@@ -126,7 +130,8 @@ Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length) {
         } break;
 
         case CHUNK_TYPE_END:
-        case CHUNK_TYPE_INVALID: break;
+        case CHUNK_TYPE_INVALID:
+            break;
     }
 
     free(bytes);
@@ -144,8 +149,8 @@ void parse_chunk_crc(FILE *f) {
 Chunk parse_chunk(FILE *f) {
 
     uint32_t data_length = parse_chunk_length(f);
-    ChunkType type = parse_chunk_type(f);
-    Chunk chunk = parse_chunk_data(f, type, data_length);
+    ChunkType type       = parse_chunk_type(f);
+    Chunk chunk          = parse_chunk_data(f, type, data_length);
     parse_chunk_crc(f);
 
     return chunk;

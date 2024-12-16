@@ -31,6 +31,15 @@ int main(int argc, char **argv) {
     }
 
 
+    FILE *new = fopen("new.png", "a");
+
+    // const uint8_t *chunk = (uint8_t*) "\x0\x0\x0\x3\x0\x0\x16\x0\x66\x6f\x6f\x0\x0\x0\x0";
+    // fwrite(chunk, sizeof(uint8_t), 15, new);
+
+    fclose(new);
+
+
+
     while (true) {
         Chunk chunk = parse_chunk(f);
 
@@ -40,31 +49,16 @@ int main(int argc, char **argv) {
             } break;
 
             case CHUNK_TYPE_HEADER:  {
-                puts("header");
-
                 uint8_t comp_meth = chunk.chunk_imageheader.compression_method;
                 assert(comp_meth == 0);
-
             } break;
 
             case CHUNK_TYPE_DATA: {
                 ImageData *data = &chunk.chunk_imagedata;
-
-                printf("Compression method/flags code: %u\n", data->compression_method);
-                printf("Additional flags/check bits: %u\n", data->additional_flags);
-
-                // for (size_t i=0; i < data->block_count; ++i) {
-                //     data->data_blocks[i];
-                // }
-
                 free(data->data_blocks);
-                printf("Check value: %d\n", data->check_value);
-
-                puts("data");
             } break;
 
             case CHUNK_TYPE_END: {
-                puts("end");
             } break;
 
         }

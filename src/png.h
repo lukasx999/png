@@ -35,20 +35,41 @@ typedef enum {
     CHUNK_TYPE_END,
 } ChunkType;
 
+
+
+typedef struct Chunks Chunks;
+
 typedef struct {
     ChunkType type;
     union {
         ImageHeader chunk_imageheader;
         ImageData   chunk_imagedata;
     };
+    uint8_t *binary_data; // raw binary data of the chunk, for reconstruction purposes
+    size_t size;          // size of the entire chunk
 } Chunk;
 
+
+extern void      print_bytes       (const uint8_t *bytes, size_t len);
 extern bool      check_signature   (FILE *f);
-extern uint32_t  parse_chunk_length(FILE *f);
-extern ChunkType parse_chunk_type  (FILE *f);
-extern Chunk     parse_chunk_data  (FILE *f, ChunkType type, uint32_t length);
-extern void      parse_chunk_crc   (FILE *f);
 extern Chunk     parse_chunk       (FILE *f);
+extern void      reconstruct_png   (const char *filename, Chunks *chunks);
+
+
+
+struct Chunks {
+    size_t _capacity;
+    size_t size;
+    Chunk *items;
+};
+
+extern Chunks chunks_new    (void);
+extern void   chunks_append (Chunks *chunks, Chunk new);
+extern void   chunks_destroy(Chunks *chunks);
+
+
+
+
 
 
 

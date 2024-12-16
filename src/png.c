@@ -5,7 +5,7 @@
 
 
 
-static void print_bytes(const char *bytes, size_t len) {
+void print_bytes(const uint8_t *bytes, size_t len) {
     for (size_t i=0; i < len-1; ++i) {
         printf("%x, ", bytes[i]);
     }
@@ -34,6 +34,51 @@ static uint64_t number_from_bytes(const uint8_t *bytes, size_t len) {
 
 
 
+
+
+
+Chunks chunks_new(void) {
+    Chunks chunks = {
+        ._capacity = 5,
+        .size     = 0,
+        .items    = NULL,
+    };
+
+    chunks.items = malloc(chunks._capacity * sizeof(Chunk));
+
+    return chunks;
+}
+
+void chunks_append(Chunks *chunks, Chunk new) {
+
+    if (chunks->size == chunks->_capacity) {
+        chunks->_capacity *= 2;
+        chunks->items     = realloc(chunks->items, chunks->_capacity * sizeof(Chunk));
+    }
+
+    chunks->items[chunks->size++] = new;
+}
+
+void chunks_destroy(Chunks *chunks) {
+
+    for (size_t i=0; i < chunks->size; ++i) {
+        free(chunks->items[i].binary_data);
+        chunks->items[i].binary_data = NULL;
+    }
+
+    free(chunks->items);
+    chunks->items = NULL;
+}
+
+
+
+
+
+
+
+
+
+
 bool check_signature(FILE *f) {
     const size_t sig_len  = 8;
     const uint8_t *signature = (uint8_t*) "\x89\x50\x4e\x47\xd\xa\x1a\xa";
@@ -50,26 +95,25 @@ bool check_signature(FILE *f) {
 
 }
 
-uint32_t parse_chunk_length(FILE *f) {
-
+static uint32_t parse_chunk_length(FILE *f, uint8_t *buf) {
     uint8_t bytes[4] = { 0 };
     fread(bytes, sizeof(uint8_t), 4, f);
+    memcpy(buf, bytes, 4);
 
     uint32_t length = number_from_bytes(bytes, 4);
     return length;
-
 }
 
-ChunkType parse_chunk_type(FILE *f) {
+static ChunkType parse_chunk_type(FILE *f, uint8_t *buf) {
 
     char bytes[4] = { 0 };
     fread(bytes, sizeof(char), 4, f);
+    memcpy(buf+4, bytes, 4);
 
     printf("type: %.4s\n", bytes);
 
     // bool private = bytes[1] & (1 << 5);
     // printf("private: %b\n", private);
-
 
     if (!strncmp(bytes, "IHDR", 4)) {
         return CHUNK_TYPE_HEADER;
@@ -86,10 +130,11 @@ ChunkType parse_chunk_type(FILE *f) {
 
 }
 
-Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length) {
+static Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length, uint8_t *buf) {
 
     uint8_t *bytes = malloc(length * sizeof(char));
     fread(bytes, sizeof(uint8_t), length, f);
+    memcpy(buf+8, bytes, length);
 
     Chunk chunk = { 0 };
     chunk.type = type;
@@ -139,20 +184,43 @@ Chunk parse_chunk_data(FILE *f, ChunkType type, uint32_t length) {
 
 }
 
-void parse_chunk_crc(FILE *f) {
-    // Skipping for now
-    fseek(f, 4, SEEK_CUR);
+static void parse_chunk_crc(FILE *f, size_t data_length, uint8_t *buf) {
+    fread(buf+8+data_length, sizeof(uint8_t), 4, f);
 }
+
 
 
 
 Chunk parse_chunk(FILE *f) {
 
-    uint32_t data_length = parse_chunk_length(f);
-    ChunkType type       = parse_chunk_type(f);
-    Chunk chunk          = parse_chunk_data(f, type, data_length);
-    parse_chunk_crc(f);
+    uint8_t *binary_data = malloc(12 * sizeof(uint8_t));
 
+    uint32_t data_length = parse_chunk_length(f, binary_data);
+    size_t chunk_size = 12 + data_length;
+    binary_data = realloc(binary_data, chunk_size * sizeof(uint8_t));
+
+    ChunkType type = parse_chunk_type(f, binary_data);
+    Chunk chunk    = parse_chunk_data(f, type, data_length, binary_data);
+    parse_chunk_crc(f, data_length, binary_data);
+
+    chunk.binary_data = binary_data;
+    chunk.size        = chunk_size;
     return chunk;
 
+}
+
+
+
+void reconstruct_png(const char *filename, Chunks *chunks) {
+    FILE *f = fopen(filename, "w");
+
+    const uint8_t *signature = (uint8_t*) "\x89\x50\x4e\x47\xd\xa\x1a\xa";
+    fwrite(signature, 8, sizeof(uint8_t), f);
+
+    for (size_t i=0; i < chunks->size; ++i) {
+        Chunk *chunk = &chunks->items[i];
+        fwrite(chunk->binary_data, chunk->size, sizeof(uint8_t), f);
+    }
+
+    fclose(f);
 }

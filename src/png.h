@@ -20,6 +20,7 @@ typedef struct {
 
 
 typedef struct {
+    // TODO: not working correctly
     /* zlib data */
     uint8_t  compression_method;
     uint8_t  additional_flags;
@@ -46,7 +47,7 @@ typedef struct {
         ImageData   chunk_imagedata;
     };
     uint8_t *binary_data; // raw binary data of the chunk, for reconstruction purposes
-    size_t size;          // size of the entire chunk
+    size_t  size;          // size of the entire chunk
 } Chunk;
 
 
